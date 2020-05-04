@@ -111,27 +111,46 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "city": "San Francisco",
-    "state": "CA",
-    "venues": [{
-      "id": 1,
-      "name": "The Musical Hop",
-      "num_upcoming_shows": 0,
-    }, {
-      "id": 3,
-      "name": "Park Square Live Music & Coffee",
-      "num_upcoming_shows": 1,
-    }]
-  }, {
-    "city": "New York",
-    "state": "NY",
-    "venues": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }]
+  # data=[{
+  #   "city": "San Francisco",
+  #   "state": "CA",
+  #   "venues": [{
+  #     "id": 1,
+  #     "name": "The Musical Hop",
+  #     "num_upcoming_shows": 0,
+  #   }, {
+  #     "id": 3,
+  #     "name": "Park Square Live Music & Coffee",
+  #     "num_upcoming_shows": 1,
+  #   }]
+  # }, {
+  #   "city": "New York",
+  #   "state": "NY",
+  #   "venues": [{
+  #     "id": 2,
+  #     "name": "The Dueling Pianos Bar",
+  #     "num_upcoming_shows": 0,
+  #   }]
+  # }]
+
+  data=[]
+
+  for venue in Venue.query.distinct(Venue.city):
+    city = venue.city
+    state = venue.state
+    city_dict = {}
+    city_dict["city"] = city
+    city_dict["state"] = state
+    city_venues = []
+    for cv in Venue.query.filter(Venue.city==city).all():
+      city_venue = {}
+      city_venue['id'] = cv.id
+      city_venue['name'] = cv.name
+      city_venue['num_upcoming_shows'] = Show.query.filter(Show.venue_id==cv.id).count()
+      city_venues.append(city_venue)
+    city_dict['venues'] = city_venues
+    data.append(city_dict)
+
   return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
@@ -826,12 +845,56 @@ def print_db():
   print('Shows: ', shows)
 
 
+# data=[{
+#     "city": "San Francisco",
+#     "state": "CA",
+#     "venues": [{
+#       "id": 1,
+#       "name": "The Musical Hop",
+#       "num_upcoming_shows": 0,
+#     }, {
+#       "id": 3,
+#       "name": "Park Square Live Music & Coffee",
+#       "num_upcoming_shows": 1,
+#     }]
+#   }, {
+#     "city": "New York",
+#     "state": "NY",
+#     "venues": [{
+#       "id": 2,
+#       "name": "The Dueling Pianos Bar",
+#       "num_upcoming_shows": 0,
+#     }]
+#   }]
+
+def get_venues():
+  data=[]
+
+  for venue in Venue.query.distinct(Venue.city):
+    city = venue.city
+    state = venue.state
+    city_dict = {}
+    city_dict["city"] = city
+    city_dict["state"] = state
+    city_venues = []
+    for cv in Venue.query.filter(Venue.city==city).all():
+      city_venue = {}
+      city_venue['id'] = cv.id
+      city_venue['name'] = cv.name
+      city_venue['num_upcoming_shows'] = Show.query.filter(Show.venue_id==cv.id).count()
+      city_venues.append(city_venue)
+    city_dict['venues'] = city_venues
+    data.append(city_dict)
+  
+  print(data)
+    
 
 # Default port:
 if __name__ == '__main__':
-  drop_data()
-  insert_data()
-  print_db()
+  #drop_data()
+  #insert_data()
+  #print_db()
+  get_venues()
   app.run()
 
 # Or specify port manually:
