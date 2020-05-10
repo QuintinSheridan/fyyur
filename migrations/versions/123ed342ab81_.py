@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: 127d8e48683d
+Revision ID: 123ed342ab81
 Revises: 
-Create Date: 2020-05-08 11:09:15.837643
+Create Date: 2020-05-10 10:06:27.443497
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '127d8e48683d'
+revision = '123ed342ab81'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -51,13 +51,12 @@ def upgrade():
     sa.PrimaryKeyConstraint('artist_id', 'genre')
     )
     op.create_table('shows',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('venue_id', sa.Integer(), nullable=True),
-    sa.Column('artist_id', sa.Integer(), nullable=True),
-    sa.Column('start_time', sa.DateTime(), nullable=True),
+    sa.Column('venue_id', sa.Integer(), nullable=False),
+    sa.Column('artist_id', sa.Integer(), nullable=False),
+    sa.Column('start_time', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['artist_id'], ['artists.id'], ),
     sa.ForeignKeyConstraint(['venue_id'], ['venues.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('venue_id', 'artist_id', 'start_time')
     )
     op.create_table('venue_genres',
     sa.Column('venue_id', sa.Integer(), nullable=False),

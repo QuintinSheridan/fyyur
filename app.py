@@ -53,7 +53,7 @@ class Venue(db.Model):
     return [self.name, self.city, self.state, self.address, self.phone, self.website] 
 
   def __repr__(self):
-    return f'<Venue {self.id} {self.name}>'
+    return f'<Venue {self.venue_id}, {self.artist_id} {self.start_time}>'
 
 
 class VenueGenre(db.Model):
@@ -100,18 +100,17 @@ class ArtistGenre(db.Model):
   genre = db.Column(db.String(120), primary_key=True)
 
   def __repr__(self):
-    return f'<VenueGenre {self.venue_id} {self.genre}>'
+    return f'<VenueGenre {self.artist_id} {self.genre}>'
 
 
 class Show(db.Model):
   __tablename__ = 'shows'
-  id = db.Column(db.Integer, primary_key=True)
-  venue_id = db.Column(db.Integer, db.ForeignKey('venues.id')) 
-  artist_id = db.Column(db.Integer, db.ForeignKey('artists.id')) 
-  start_time = db.Column(db.DateTime(timezone=False)) 
+  venue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), primary_key=True) 
+  artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), primary_key=True) 
+  start_time = db.Column(db.DateTime(timezone=False), primary_key=True) 
 
   def __repr__(self):
-        return f'<Show {self.id} {self.venue_id, self.artist_id, self.start_time}>'
+        return f'<Show {self.venue_id, self.artist_id, self.start_time}>'
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
@@ -163,38 +162,10 @@ def get_artist_shows(artist_id, period='upcomming'):
 
   return shows
 
-ass = get_artist_shows(4, period='past')
-
-print(f'\n\n\n ASS {ass} \n\n\n')
-
-for show in ass:
-  print(f'show.artist {show.artist}')
-  print(show.artist.__dict__)
-  print(f'show.venue {show.venue}')
-
-
-
-# # "2019-05-21T21:30:00.000Z"
-# shows = get_venue_shows(1, period='past')
-# print('\n\n\n VS: \n', shows, '\n\n\n')
-# print(format_datetime(str(shows[0].start_time)))
-# print('timestring: ', str(shows[0].start_time))
-
-# genres = [g.genre for g in Genre.query.filter(Genre.venue_id == 1)]
-
-# print('genres: ', genres)
-
-# show = Show.query.first()
-# print('now: ', datetime.datetime.now())
-# past_shows =  Show.query.filter(Show.venue_id == 1).filter(Show.start_time < datetime.datetime.now()).join(Artist).all()
-# print('past_shows: ', past_shows)
-# print('show: ', show)
-# get_venue_shows(1)
 
 #----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
-
 @app.route('/')
 def index():
   return render_template('pages/home.html')
@@ -202,7 +173,6 @@ def index():
 
 #  Venues
 #  ----------------------------------------------------------------
-
 @app.route('/venues')
 def venues():
 
@@ -317,14 +287,18 @@ def show_venue(venue_id):
 @app.route('/venues/create', methods=['GET'])
 def create_venue_form():
   form = VenueForm()
+  print(f'form.name {form.name}')
   return render_template('forms/new_venue.html', form=form)
+
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
-  form_data = request.form.to_dict()
   successful_add = True
-  print('/n/n/n form_data: ', form_data, '/n/n/n')
   try:
+    # retrieve list of genres
+    genres = request.form.getlist('genres')
+    # retrieve other form dtaa as dict
+    form_data = request.form.to_dict()
     # create venue object
     venue = Venue(name=form_data['name'], city=form_data['city'], state=form_data['state'], address=form_data['address'], 
       phone=form_data['phone'], facebook_link=form_data['facebook_link'] )
@@ -336,15 +310,11 @@ def create_venue_submission():
     # add venue
     db.session.add(venue)
     db.session.flush()
-    print('venue_id: ', venue.id)
-    g = form_data['genres']
-    print('/n/n/n genres: ', g, '/n/n/n')
-    # TODO: figure out how to make genres return as a list
-    # for g in genres:
-    #   genre = Genre(venue_id=venue.id, genre=g)
-    #   db.session.add(genre)
-    # commit changes
-    genre = VenueGenre(venue.id, genre=g)
+
+    for g in genres:
+       genre = VenueGenre(venue_id=venue.id, genre=g)
+       db.session.add(genre)
+
     venue_name = venue.name
     db.session.add(genre)
     db.session.commit()
@@ -353,20 +323,22 @@ def create_venue_submission():
     print(f'The following error  occured while trying to create a venue: {e}')
     flash(f"Venue venue_name could not be created due to the following exception: {e}.")
     db.session.rollback()
-
   finally:
     db.session.commit()
     db.session.close()
     if successful_add:
       flash(f'Venue {venue_name}was successfully listed!')
+
     return render_template('pages/home.html')
+
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
   try:
     Venue.query.filter_by(id=venue_id).delete()
     db.session.commit()
-  except:
+  except Exception as e:
+    print(f'The following error occured while trying to delete a venue: {e}')
     db.session.rollback()
   finally:
     db.session.close()
@@ -375,6 +347,7 @@ def delete_venue(venue_id):
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
   return None
+
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -392,11 +365,13 @@ def artists():
 
   return render_template('pages/artists.html', artists=data)
 
+
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
   
   response = {}
   search_term = search_term=request.form.get('search_term', '')
+
   if search_term:
     print(f'search_term: {search_term}')
     search_term = search_term.lower()
@@ -405,7 +380,6 @@ def search_artists():
     count = 0
     for artist in artists:
       artist_name = artist.name.lower()
-      
       if search_term in artist_name:
         match = {}
         match['id'] = artist.id
@@ -418,6 +392,7 @@ def search_artists():
     response['data'] = data
 
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
@@ -448,21 +423,6 @@ def show_artist(artist_id):
   ps_count = len(past_shows)
   us_count = len(upcomming_shows)
 
-  # "id": 5,                                                                                                                "name": "Matt Quevedo",
-  # "genres": ["Jazz"],
-  # "city": "New York",
-  # "state": "NY",
-  # "phone": "300-400-5000",
-  # "facebook_link": "https://www.facebook.com/mattquevedo923251523",
-  # "seeking_venue": False,
-  # "image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-  # "past_shows": [{
-  #   "venue_id": 3,
-  #   "venue_name": "Park Square Live Music & Coffee",
-  #   "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
-  #   "start_time": "2019-06-15T23:00:00.000Z"
-  # }],
-
   genres = [g.genre for g in artist.genres]
 
   data = {
@@ -490,74 +450,58 @@ def show_artist(artist_id):
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
   form = ArtistForm()
-  # artist={
-  #   "id": 4,
-  #   "name": "Guns N Petals",
-  #   "genres": ["Rock n Roll"],
-  #   "city": "San Francisco",
-  #   "state": "CA",
-  #   "phone": "326-123-5000",
-  #   "website": "https://www.gunsnpetalsband.com",
-  #   "facebook_link": "https://www.facebook.com/GunsNPetals",
-  #   "seeking_venue": True,
-  #   "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-  #   "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80"
-  # }
-  # TODO: populate form with fields from artist with ID <artist_id>
   a = Artist.query.get(artist_id)
-  ag = ArtistGenre.query.get(ArtistGenre.artist_id==artist_id)
+  ag = ArtistGenre.query.filter(ArtistGenre.artist_id==artist_id).all()
   artist = a.__dict__
-  artist['genres'] = [g.genre for g in ag]
-
-  # artist={
-  #   "id": 4,
-  #   "name": "Guns N Petals",
-  #   "genres": ["Rock n Roll"],
-  #   "city": "San Francisco",
-  #   "state": "CA",
-  #   "phone": "326-123-5000",
-  #   "website": "https://www.gunsnpetalsband.com",
-  #   "facebook_link": "https://www.facebook.com/GunsNPetals",
-  #   "seeking_venue": True,
-  #   "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-  #   "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80"
-  # }
+  genres = request.form.getlist('genres')
 
   return render_template('forms/edit_artist.html', form=form, artist=artist)
+
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
-  data = request.form.to_dict()
+  print(f'Artist update data: {data}')
+  update_successful = True
   try:
+    # retrieve list of genres
+    genres = request.form.getlist('genres')
+    # retrieve other form dtaa as dict
+    data = request.form.to_dict()
+    artist['genres'] = [g.genre for g in ag]
     a = Artist.query.get(artist_id)
     a.name = data['name']
     #artist.genres = data['genres']
     a.city = data['city']
     a.state = data['state']
     a.phone = data['phone']
-    a.website = data['website']
+    #a.website = data['website']
     a.facebook_link = data['facebook_link']
-    a.seeking_venue = data['seeking_venue']
-    a.seeking_description = data['seeking_description']
-    a.image_link = data['image_link']
+    #a.seeking_venue = data['seeking_venue']
+    #a.seeking_description = data['seeking_description']
+    #a.image_link = data['image_link']
 
-    ArtistGenre.query.get(ArtistGenre.artist_id==artist_id).delete()
-    for g in data['genres']:
-      genre = ArtistGenre(artist_id=artist.id, genre=g)
-      db.add(genre)
+    ArtistGenre.query.filter(ArtistGenre.artist_id==artist_id).delete()
+    for g in genres:
+       genre = ArtistGenre(artist_id=artist_id, genre=g)
+       db.session.add(genre)
 
-    artist = a.__dict__
-    artist['genres'] = data['genres']
-
-    db.commit()
-  except:
-    db.rollback()
+    db.session.commit()
+  except Exception as e:
+    print(f'The following error occured whileupdating artist: {e}')
+    update_successful = False
+    db.session.rollback()
   finally:
     db.session.close()
 
+  if update_successful:
+    flash('Artist Updated')
+  else:
+    flash('Error occured while updating artist')
+
   return redirect(url_for('show_artist', artist_id=artist_id))
+
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
@@ -587,10 +531,13 @@ def edit_venue(venue_id):
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-  data = request.form.to_dict()
-  print(f'data: {data}')
   edit_successful = True
   try:
+    # retrieve list of genres
+    genres = request.form.getlist('genres')
+    # retrieve other form dtaa as dict
+    data = request.form.to_dict()
+    # get venue instance and update
     v = Venue.query.get(venue_id)
     v.name = data['name']
     v.address = data['address']
@@ -605,11 +552,9 @@ def edit_venue_submission(venue_id):
 
     VenueGenre.query.filter(VenueGenre.venue_id==venue_id).delete()
     # TODO: get list of genres from form
-    # for g in data['genres']:
-    #   genre = VenueGenre(venue_id=venue_id, genre=g)
-    #   db.session.add(genre)
-    genre = VenueGenre(venue_id=venue_id, genre=data['genres'])
-    db.session.add(genre)
+    for g in genres:
+       genre = VenueGenre(venue_id=venue_id, genre=g)
+       db.session.add(genre)
 
     db.session.commit()
   except Exception as e:
@@ -637,10 +582,12 @@ def create_artist_form():
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
-  data = request.form.to_dict() 
-  #print('\n\n\n\ artist form fields ', data.keys(), '\n\n\n')
-  artist_added = True
+  create_successful = True
   try:
+    # retrieve list of genres
+    genres = request.form.getlist('genres')
+    # retrieve other form dtaa as dict
+    data = request.form.to_dict()
     name = data['name']
     city = data['city'] 
     state =data['state']
@@ -653,20 +600,20 @@ def create_artist_submission():
     artist = Artist(name=name, city=city, state=state, phone=phone, facebook_link=facebook_link)
     db.session.add(artist)
     db.session.flush()
-
-    g = data['genres']
     artist_name = artist.name
-    ag = ArtistGenre(artist_id=artist.id, genre=g)
-    db.session.add(ag)
+
+    for g in genres:
+      ag = ArtistGenre(artist_id=artist.id, genre=g)
+      db.session.add(ag)
     db.session.commit()
   except Exception as e:
     print(f'The following exception occured while trying to add an artist: {e}')
-    artist_added = False
+    create_successful = False
     db.session.rollback
   finally: 
     db.session.close()
   # on successful db insert, flash success
-  if artist_added:
+  if create_successful:
     flash(f'Artist {artist_name} was successfully listed!')
   else:
     flash(f"Error occurred while rtrying to add artist {artist_name}!")
@@ -1071,12 +1018,17 @@ def drop_data():
 def print_db():
   venues = Venue.query.all()
   print('Venues: ', venues)
+  venue_genres  = VenueGenre.query.all()
+  print('venue_genres: ', venue_genres)
   artists = Artist.query.all()
   print('Artists: ', artists)
+  artist_genres = ArtistGenre.query.all()
+  print('venue_genres: ', venue_genres)
   shows = Show.query.all()
   print('Shows: ', shows)
-  genres = Genre.query.all()
-  print('genres: ', genres)
+  artist_genres = ArtistGenre.query.all()
+  print('venue_genres: ', venue_genres)
+
     
 
 
