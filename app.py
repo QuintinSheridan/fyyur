@@ -43,7 +43,8 @@ class Venue(db.Model):
   facebook_link = db.Column(db.String(120))
   seeking_talent = db.Column(db.Boolean, nullable=False, default=True)
   seeking_description = db.Column(db.String)
-  image_link = db.Column(db.String)
+  # ensure data uniqueness
+  __table_args__ = (db.UniqueConstraint(name, city, state, address, phone, website),)
   # relationships
   shows = db.relationship('Show',  cascade="all,delete", backref='venue', lazy=True)
   genres = db.relationship('VenueGenre',  cascade="all,delete", backref='venue', lazy=True)
@@ -76,17 +77,19 @@ class Artist(db.Model):
   state = db.Column(db.String(120))
   phone = db.Column(db.String(120))
   image_link = db.Column(db.String(500))
+  website = db.Column(db.String(500))
   facebook_link = db.Column(db.String(120))
   seeking_venue = db.Column(db.Boolean, nullable=False, default=True)
   seeking_description = db.Column(db.String)
-  image_link = db.Column(db.String)
+  # ensure data uniqueness
+  __table_args__ = (db.UniqueConstraint(name, city, state, phone, website),)
   # relationships
   shows = db.relationship('Show',  cascade="all,delete", backref='artist', lazy=True)
   genres = db.relationship('ArtistGenre',  cascade="all,delete", backref='artist', lazy=True)
 
   # method to return uniquely identifying band attributes
   def get_atttibutes(self):
-    return [self.name, self.city, self.state, self.address, self.phone, self.website] 
+    return [self.name, self.city, self.state, self.phone, self.website] 
 
   def __repr__(self):
     return f'<Artist {self.id} {self.name}>'
@@ -294,14 +297,28 @@ def create_venue_form():
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
   successful_add = True
+  print(f'Data: {request.form.to_dict()}')
   try:
     # retrieve list of genres
     genres = request.form.getlist('genres')
     # retrieve other form dtaa as dict
     form_data = request.form.to_dict()
     # create venue object
+    # id = db.Column(db.Integer, primary_key=True)
+    # name = db.Column(db.String)
+    # city = db.Column(db.String(120))
+    # state = db.Column(db.String(120))
+    # address = db.Column(db.String(120))
+    # phone = db.Column(db.String(120))
+    # image_link = db.Column(db.String(500))
+    # website = db.Column(db.String(500))
+    # facebook_link = db.Column(db.String(120))
+    # seeking_talent = db.Column(db.Boolean, nullable=False, default=True)
+    # seeking_description = db.Column(db.String)
+
     venue = Venue(name=form_data['name'], city=form_data['city'], state=form_data['state'], address=form_data['address'], 
-      phone=form_data['phone'], facebook_link=form_data['facebook_link'] )
+      phone=form_data['phone'], image_link=form_data['image_link'] , website=form_data['website'], facebook_link=form_data['facebook_link'], 
+      seeking_talent=bool(form_data['seeking_talent']), seeking_description=form_data['seeking_description'])
     # check to make sure the venue doesn't exist already
     old_venues = Venue.query.filter(Venue.name==venue.name).all()
     for v in old_venues:
@@ -423,7 +440,8 @@ def show_artist(artist_id):
   ps_count = len(past_shows)
   us_count = len(upcomming_shows)
 
-  genres = [g.genre for g in artist.genres]
+  ag = ArtistGenre.query.filter(ArtistGenre.artist_id==artist_id).all()
+  genres = [g.genre for g in ag]
 
   data = {
   "id": artist.id,
@@ -452,8 +470,28 @@ def edit_artist(artist_id):
   form = ArtistForm()
   a = Artist.query.get(artist_id)
   ag = ArtistGenre.query.filter(ArtistGenre.artist_id==artist_id).all()
+  genres = [g.genre for g in ag]
   artist = a.__dict__
-  genres = request.form.getlist('genres')
+  artist['genres']=genres
+  
+  # name = db.Column(db.String)
+  # city = db.Column(db.String(120))
+  # state = db.Column(db.String(120))
+  # phone = db.Column(db.String(120))
+  # image_link = db.Column(db.String(500))
+  # facebook_link = db.Column(db.String(120))
+  # seeking_venue = db.Column(db.Boolean, nullable=False, default=True)
+  # seeking_description = db.Column(db.String)
+
+  form.name.data = a.name
+  form.city.data = a.city
+  form.state.data = a.state
+  form.phone.data = a.phone
+  form.image_link.data = a.image_link
+  form.facebook_link.data = a.facebook_link
+  form.seeking_venue.data = a.seeking_venue
+  form.seeking_description.data = a.seeking_description
+  form.genres.data = genres
 
   return render_template('forms/edit_artist.html', form=form, artist=artist)
 
@@ -462,25 +500,23 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
-  print(f'Artist update data: {data}')
   update_successful = True
   try:
     # retrieve list of genres
     genres = request.form.getlist('genres')
     # retrieve other form dtaa as dict
     data = request.form.to_dict()
-    artist['genres'] = [g.genre for g in ag]
+    #print(f'Artist update data: {data}')
     a = Artist.query.get(artist_id)
     a.name = data['name']
-    #artist.genres = data['genres']
     a.city = data['city']
     a.state = data['state']
     a.phone = data['phone']
-    #a.website = data['website']
+    a.website = data['website']
     a.facebook_link = data['facebook_link']
-    #a.seeking_venue = data['seeking_venue']
-    #a.seeking_description = data['seeking_description']
-    #a.image_link = data['image_link']
+    a.seeking_venue = data['seeking_venue']
+    a.seeking_description = data['seeking_description']
+    a.image_link = data['image_link']
 
     ArtistGenre.query.filter(ArtistGenre.artist_id==artist_id).delete()
     for g in genres:
@@ -527,6 +563,21 @@ def edit_venue(venue_id):
   venue['genres'] = [g.genre for g in vg]
 
   # TODO: populate form with values from venue with ID <venue_id>
+
+  form.name.data = v.name
+  form.genres.data = [g.genre for g in vg]
+  form.address.data = v.address
+  form.city.data = v.city
+  form.state.data = v.state
+  form.phone.data = v.phone
+  form.website.data = v.website
+  form.facebook_link.data = v.facebook_link
+  form.seeking_talent.data = v.seeking_talent
+  form.seeking_description.data = v.seeking_description
+  form.image_link.data = v.image_link
+
+
+  
   return render_template('forms/edit_venue.html', form=form, venue=venue)
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
@@ -544,14 +595,13 @@ def edit_venue_submission(venue_id):
     v.city = data['city']
     v.state = data['state']
     v.phone = data['phone']
-    #v.website = data['website']
+    v.website = data['website']
     v.facebook_link = data['facebook_link']
-    #v.seeking_talent = data['seeking_talent']
-    #v.seeking_description = data['seeking_description']
-    #v.image_link = data['image_link']
+    v.seeking_talent = bool(data['seeking_talent'])
+    v.seeking_description = data['seeking_description']
+    v.image_link = data['image_link']
 
     VenueGenre.query.filter(VenueGenre.venue_id==venue_id).delete()
-    # TODO: get list of genres from form
     for g in genres:
        genre = VenueGenre(venue_id=venue_id, genre=g)
        db.session.add(genre)
@@ -592,16 +642,15 @@ def create_artist_submission():
     city = data['city'] 
     state =data['state']
     phone = data['phone']
-    #image_link = data['image_link']
+    image_link = data['image_link']
     facebook_link = data['facebook_link']
-    # seeking_venue = 
-    # seeking_description =
-    # image_link =
-    artist = Artist(name=name, city=city, state=state, phone=phone, facebook_link=facebook_link)
+    seeking_venue = bool(data['seeking_venue'])
+    seeking_description = data['seeking_description']
+    artist = Artist(name=name, city=city, state=state, phone=phone, image_link=image_link, facebook_link=facebook_link,
+      seeking_venue=seeking_venue, seeking_description=seeking_description)
     db.session.add(artist)
     db.session.flush()
     artist_name = artist.name
-
     for g in genres:
       ag = ArtistGenre(artist_id=artist.id, genre=g)
       db.session.add(ag)
@@ -1035,7 +1084,7 @@ def print_db():
 # Default port:
 if __name__ == '__main__':
   drop_data()
-  insert_data()
+  #insert_data()
   #print_db()
   app.run()
 
