@@ -2,9 +2,9 @@ Fyyur
 -----
 ### Database Connection Instructions
 The app expects to receive username and password from local bash variables.  In order for app to launch sucessfully and make a database connection, The follwing variables must be exported from the launch invironment:
-export USERNAME='user'
-export PW='pword'
-export database=database
+1) export USERNAME='user'
+2) export PW='pword'
+3) export database=database
 
 All database tables can be created using flask migration.
 1) flask db init
