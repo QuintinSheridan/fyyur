@@ -1,16 +1,5 @@
 Fyyur
 -----
-### Database Connection Instructions
-The app expects to receive username and password from local bash variables.  In order for app to launch sucessfully and make a database connection, The follwing variables must be exported from the launch invironment:
-1) export USERNAME='user'
-2) export PW='pword'
-3) export database=database
-
-All database tables can be created using flask migration.
-1) flask db init
-2) flask db migrate
-3) flask db upgrade
-
 ### Introduction
 
 Fyyur is a musical venue and artist booking site that facilitates the discovery and bookings of shows between local performing artists and venues. This site lets you list new artists and venues, discover them, and list shows with artists as a venue owner.
@@ -143,7 +132,22 @@ To start and run the local development server,
   $ pip install -r requirements.txt
   ```
 
-3. Run the development server:
+3. Database Connection Instructions
+The app expects to receive username and password from local bash variables.  In order for app to launch sucessfully and make a database connection, The follwing variables must be exported from the launch invironment:
+```
+export USERNAME='user'
+export PW='pword'
+export database=database
+```
+
+All database tables can be created using flask migration.
+```
+flask db init
+flask db migrate
+flask db upgrade
+```
+
+4. Run the development server:
   ```
   $ export FLASK_APP=myapp
   $ export FLASK_ENV=development # enables debug mode
